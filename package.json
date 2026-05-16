@@ -1,0 +1,37 @@
+{
+  "name": "pretty-qr-lab",
+  "version": "0.1.0",
+  "description": "A local-first QR code generator with a web UI, CLI, and Codex skill docs.",
+  "type": "module",
+  "bin": {
+    "pqr": "./bin/pqr.js"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "qr": "node ./bin/pqr.js",
+    "example": "node ./bin/pqr.js \"https://example.com\" --theme aurora --output examples/example.png"
+  },
+  "keywords": [
+    "qr",
+    "qrcode",
+    "cli",
+    "svg",
+    "png",
+    "vite",
+    "react"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "commander": "^12.1.0",
+    "qrcode-generator": "^1.4.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7"
+  }
+}
