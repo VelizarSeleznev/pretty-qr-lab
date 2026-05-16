@@ -77,11 +77,61 @@ export const defaultOptions = {
   safeMode: false,
   seed: 1,
   logoText: '',
+  customColors: null,
+  eyeCenter: 'mixed',
+  eyeDifferent: true,
+  animatedEyes: false,
+  eyeSpeed: 12,
 };
 
 export const optionChoices = {
   theme: Object.keys(palettes),
   frame: ['square', 'squircle', 'clover', 'ticket'],
   eyes: ['standard', 'custom', 'orbit'],
+  eyeCenter: ['mixed', 'dot', 'poly', 'star', 'orbit', 'ring'],
   shapes: ['squares', 'dots', 'mixed'],
 };
+
+export function resolvePalette(options = {}) {
+  const base = palettes[options.theme] ?? palettes[defaultOptions.theme];
+  const custom = options.customColors ?? {};
+  const modules = normalizeColorList(custom.modules, base.modules);
+  const ghosts = normalizeColorList(custom.ghosts, base.ghosts);
+
+  return {
+    ...base,
+    background: normalizeColor(custom.background, base.background),
+    panel: normalizeColor(custom.panel, base.panel),
+    surface: normalizeColor(custom.surface, base.surface),
+    text: normalizeColor(custom.text, base.text),
+    muted: normalizeColor(custom.muted, base.muted),
+    eye: normalizeColor(custom.eye, base.eye),
+    modules,
+    ghosts,
+  };
+}
+
+export function colorsFromPalette(palette) {
+  return {
+    background: palette.background,
+    panel: palette.panel,
+    surface: palette.surface,
+    text: palette.text,
+    muted: palette.muted,
+    eye: palette.eye,
+    modules: [...palette.modules],
+    ghosts: [...palette.ghosts],
+  };
+}
+
+function normalizeColor(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed : fallback;
+}
+
+function normalizeColorList(value, fallback) {
+  if (!Array.isArray(value)) return [...fallback];
+  const colors = value.map((item) => normalizeColor(item, null)).filter(Boolean);
+  return colors.length ? colors : [...fallback];
+}

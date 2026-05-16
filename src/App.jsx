@@ -1,17 +1,43 @@
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { defaultOptions, palettes } from './palettes.js';
+import { colorsFromPalette, defaultOptions, palettes, resolvePalette } from './palettes.js';
 import { renderQrSvg, svgToDataUri } from './renderQr.js';
 import './styles.css';
 
 function App() {
   const [options, setOptions] = useState(defaultOptions);
-  const palette = palettes[options.theme];
+  const palette = resolvePalette(options);
   const svg = useMemo(() => renderQrSvg(options), [options]);
   const dataUri = useMemo(() => svgToDataUri(svg), [svg]);
 
   function update(patch) {
     setOptions((current) => ({ ...current, ...patch }));
+  }
+
+  function updateCustomColors(patch) {
+    setOptions((current) => {
+      const base = colorsFromPalette(resolvePalette(current));
+      return {
+        ...current,
+        customColors: {
+          ...base,
+          ...(current.customColors ?? {}),
+          ...patch,
+        },
+      };
+    });
+  }
+
+  function updateModuleColor(index, color) {
+    const modules = [...palette.modules];
+    modules[index] = color;
+    updateCustomColors({ modules });
+  }
+
+  function updateGhostColor(index, color) {
+    const ghosts = [...palette.ghosts];
+    ghosts[index] = color;
+    updateCustomColors({ ghosts });
   }
 
   async function downloadPng() {
@@ -37,7 +63,7 @@ function App() {
     link.click();
   }
 
-  const cli = `pqr ${JSON.stringify(options.text || ' ')} --theme ${options.theme} --frame ${options.frame} --eyes ${options.eyes} --shapes ${options.shapes} --seed ${options.seed} -o qr.png`;
+  const cli = buildCli(options, palette);
 
   return (
     <main className="app" style={{ '--bg': palette.background, '--panel': palette.panel, '--surface': palette.surface, '--text': palette.text, '--muted': palette.muted, '--accent': palette.eye }}>
@@ -81,13 +107,34 @@ function App() {
             <button
               type="button"
               className={options.theme === key ? 'swatch active' : 'swatch'}
-              style={{ '--swatch': item.surface, '--swatchAccent': item.eye }}
-              onClick={() => update({ theme: key })}
+              onClick={() => update({ theme: key, customColors: null })}
               title={item.name}
               aria-label={item.name}
               key={key}
-            />
+            >
+              <span style={{ background: item.surface }} />
+              <span style={{ background: item.eye }} />
+              <span style={{ background: item.modules[2] }} />
+              <span style={{ background: item.modules[3] }} />
+            </button>
           ))}
+        </div>
+
+        <div className="colorPanel">
+          <div className="sectionTitle colorHeader">
+            Custom colors
+            <button type="button" onClick={() => update({ customColors: null })}>Reset</button>
+          </div>
+          <div className="colorGrid">
+            <ColorInput label="Frame" value={palette.surface} onChange={(surface) => updateCustomColors({ surface })} />
+            <ColorInput label="Eye" value={palette.eye} onChange={(eye) => updateCustomColors({ eye })} />
+            {palette.modules.slice(0, 4).map((color, index) => (
+              <ColorInput label={`Module ${index + 1}`} value={color} onChange={(next) => updateModuleColor(index, next)} key={`module-${index}`} />
+            ))}
+            {palette.ghosts.slice(0, 2).map((color, index) => (
+              <ColorInput label={`Ghost ${index + 1}`} value={color} onChange={(next) => updateGhostColor(index, next)} key={`ghost-${index}`} />
+            ))}
+          </div>
         </div>
 
         <Segmented
@@ -97,6 +144,18 @@ function App() {
           onChange={(frame) => update({ frame, quietZone: frame === 'clover' ? 10 : 4 })}
         />
         <Segmented label="Eyes" value={options.eyes} choices={['custom', 'orbit', 'standard']} onChange={(eyes) => update({ eyes })} />
+        {options.eyes !== 'standard' && (
+          <>
+            <Segmented label="Eye centers" value={options.eyeCenter} choices={['mixed', 'dot', 'poly', 'star', 'orbit', 'ring']} onChange={(eyeCenter) => update({ eyeCenter })} />
+            <div className="toggleGrid">
+              <Toggle label="Different eyes" checked={options.eyeDifferent} onChange={(eyeDifferent) => update({ eyeDifferent })} />
+              <Toggle label="Rotate eyes" checked={options.animatedEyes} onChange={(animatedEyes) => update({ animatedEyes })} disabled={options.safeMode} />
+            </div>
+            {options.animatedEyes && !options.safeMode && (
+              <Range label="Eye speed" value={options.eyeSpeed} min={4} max={30} step={1} onChange={(eyeSpeed) => update({ eyeSpeed })} />
+            )}
+          </>
+        )}
         <Segmented label="Modules" value={options.shapes} choices={['mixed', 'dots', 'squares']} onChange={(shapes) => update({ shapes })} />
 
         <div className="toggleGrid">
@@ -122,6 +181,19 @@ function App() {
         </div>
       </section>
     </main>
+  );
+}
+
+function ColorInput({ label, value, onChange }) {
+  function handleChange(event) {
+    onChange(event.target.value);
+  }
+
+  return (
+    <label className="colorInput">
+      <span>{label}</span>
+      <input type="color" value={value} onInput={handleChange} onChange={handleChange} />
+    </label>
   );
 }
 
@@ -159,4 +231,40 @@ function Range({ label, value, min, max, step, onChange }) {
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+const rootElement = document.getElementById('root');
+const root = window.__PRETTY_QR_ROOT__ ?? createRoot(rootElement);
+window.__PRETTY_QR_ROOT__ = root;
+root.render(<App />);
+
+function buildCli(options, palette) {
+  const parts = [
+    'pqr',
+    JSON.stringify(options.text || ' '),
+    '--theme',
+    options.theme,
+    '--frame',
+    options.frame,
+    '--eyes',
+    options.eyes,
+    '--eye-center',
+    options.eyeCenter,
+    '--shapes',
+    options.shapes,
+    '--seed',
+    String(options.seed),
+  ];
+  if (!options.eyeDifferent) parts.push('--same-eyes');
+  if (options.animatedEyes) parts.push('--rotate-eyes', '--eye-speed', String(options.eyeSpeed));
+  if (options.customColors) {
+    parts.push('--surface', quote(palette.surface));
+    parts.push('--eye-color', quote(palette.eye));
+    parts.push('--module-colors', quote(palette.modules.slice(0, 4).join(',')));
+    parts.push('--ghost-colors', quote(palette.ghosts.slice(0, 2).join(',')));
+  }
+  parts.push('-o', 'qr.png');
+  return parts.join(' ');
+}
+
+function quote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
+}

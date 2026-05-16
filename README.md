@@ -40,6 +40,7 @@ pqr "https://example.com" -o qr.png
 pqr "hello from cli" -o hello.svg --frame ticket --eyes orbit
 pqr "wifi:T:WPA;S:Guest;P:secret;;" -o wifi.png --safe
 pqr "https://github.com" -o branded.png --logo GH --theme ink --frame clover --quiet-zone 10 --seed 7
+pqr "custom colors" -o custom.svg --surface '#ffffff' --eye-color '#111827' --module-colors '#111827,#0f766e,#d78722,#9739a8'
 ```
 
 Useful flags:
@@ -48,7 +49,15 @@ Useful flags:
 --theme rose|aurora|ink|citrus|lavender
 --frame square|squircle|clover|ticket
 --eyes standard|custom|orbit
+--eye-center mixed|dot|poly|star|orbit|ring
+--same-eyes
+--rotate-eyes
+--eye-speed 12
 --shapes squares|dots|mixed
+--surface #ffffff
+--eye-color #111827
+--module-colors #111827,#0f766e,#d78722
+--ghost-colors #cfd7e4,#dfe6f0
 --size 1024
 --quiet-zone 5
 --seed 1
@@ -77,8 +86,10 @@ Optional effects:
 - Ghost dots in light areas and frame margins.
 - Larger decorative super blocks.
 - Standard, custom, or orbit finder eyes.
+- Mixed or matching finder-eye centers, plus optional SVG rotation.
 - Clover, squircle, square, and ticket frames.
 - Short center logo text.
+- Custom frame, finder-eye, module, and ghost colors.
 
 ## Agent Skill
 

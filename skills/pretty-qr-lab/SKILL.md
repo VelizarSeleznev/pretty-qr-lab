@@ -15,6 +15,7 @@ From the project directory:
 npm run qr -- "https://example.com" -o qr.png
 npm run qr -- "hello" -o hello.svg --theme ink --safe
 npm run qr -- "https://github.com" -o github.png --theme aurora --frame clover --eyes orbit --seed 7
+npm run qr -- "custom" -o custom.svg --surface '#ffffff' --eye-color '#111827' --module-colors '#111827,#0f766e,#d78722'
 ```
 
 If linked with `npm link`:
@@ -28,7 +29,15 @@ pqr "https://example.com" -o qr.png
 - `--theme rose|aurora|ink|citrus|lavender`
 - `--frame square|squircle|clover|ticket`
 - `--eyes standard|custom|orbit`
+- `--eye-center mixed|dot|poly|star|orbit|ring`
+- `--same-eyes`
+- `--rotate-eyes`
+- `--eye-speed <seconds>`
 - `--shapes squares|dots|mixed`
+- `--surface <#rrggbb>`
+- `--eye-color <#rrggbb>`
+- `--module-colors <#rrggbb,#rrggbb,...>`
+- `--ghost-colors <#rrggbb,#rrggbb,...>`
 - `--logo <short text>`
 - `--seed <number>`
 - `--no-connected`

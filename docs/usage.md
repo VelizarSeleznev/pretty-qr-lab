@@ -18,6 +18,23 @@ The CLI accepts the payload as its first positional argument and writes PNG or S
 pqr "https://example.com" --theme aurora --frame clover -o qr.png
 ```
 
+Custom colors:
+
+```sh
+pqr "https://example.com" \
+  --surface '#ffffff' \
+  --eye-color '#111827' \
+  --module-colors '#111827,#0f766e,#d78722,#9739a8' \
+  -o custom.svg
+```
+
+Finder-eye controls:
+
+```sh
+pqr "https://example.com" --eyes custom --eye-center star --same-eyes -o star-eyes.png
+pqr "https://example.com" --eyes custom --eye-center mixed --rotate-eyes --eye-speed 10 -o rotating-eyes.svg
+```
+
 For automation, prefer:
 
 ```sh

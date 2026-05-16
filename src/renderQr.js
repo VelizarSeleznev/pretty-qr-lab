@@ -1,5 +1,5 @@
 import qrcode from 'qrcode-generator';
-import { defaultOptions, palettes } from './palettes.js';
+import { defaultOptions, optionChoices, palettes, resolvePalette } from './palettes.js';
 
 const ns = 'http://www.w3.org/2000/svg';
 
@@ -10,7 +10,9 @@ export function normalizeOptions(input = {}) {
   options.cloverDepth = clamp(Number(options.cloverDepth) || defaultOptions.cloverDepth, 0.02, 0.14);
   options.cloverBaseSize = clamp(Number(options.cloverBaseSize) || defaultOptions.cloverBaseSize, 0.38, 0.56);
   options.seed = Math.max(1, Math.floor(Number(options.seed) || 1));
+  options.eyeSpeed = clamp(Number(options.eyeSpeed) || defaultOptions.eyeSpeed, 4, 30);
   if (!palettes[options.theme]) options.theme = defaultOptions.theme;
+  if (!optionChoices.eyeCenter.includes(options.eyeCenter)) options.eyeCenter = defaultOptions.eyeCenter;
   if (options.safeMode) {
     options.ghosts = false;
     options.shapes = 'squares';
@@ -18,13 +20,14 @@ export function normalizeOptions(input = {}) {
     options.superBlocks = false;
     options.eyes = 'standard';
     options.frame = options.frame === 'clover' ? 'squircle' : options.frame;
+    options.animatedEyes = false;
   }
   return options;
 }
 
 export function renderQrSvg(input = {}) {
   const options = normalizeOptions(input);
-  const palette = palettes[options.theme];
+  const palette = resolvePalette(options);
   const qr = qrcode(0, 'H');
   qr.addData(options.text || ' ');
   qr.make();
@@ -135,9 +138,10 @@ function drawEyes(parts, options, palette, count, margin, cell) {
   const positions = [
     [0, 0, 'poly'],
     [0, count - 7, 'star'],
-    [count - 7, 0, 'orbit'],
+    [count - 7, 0, 'ring'],
   ];
-  for (const [row, col, kind] of positions) {
+  for (let index = 0; index < positions.length; index += 1) {
+    const [row, col, kind] = positions[index];
     const x = (col + margin) * cell;
     const y = (row + margin) * cell;
     const cx = x + 3.5 * cell;
@@ -148,17 +152,61 @@ function drawEyes(parts, options, palette, count, margin, cell) {
       parts.push(`<rect x="${x + 2 * cell}" y="${y + 2 * cell}" width="${3 * cell}" height="${3 * cell}" fill="${palette.eye}"/>`);
       continue;
     }
-    parts.push(`<circle cx="${cx}" cy="${cy}" r="${3.35 * cell}" fill="${palette.eye}"/>`);
-    parts.push(`<circle cx="${cx}" cy="${cy}" r="${2.35 * cell}" fill="${palette.surface}"/>`);
-    if (options.eyes === 'orbit' || kind === 'orbit') {
-      parts.push(`<ellipse cx="${cx}" cy="${cy}" rx="${1.8 * cell}" ry="${1.1 * cell}" fill="${palette.eye}" transform="rotate(-28 ${cx} ${cy})"/>`);
-      parts.push(`<circle cx="${cx + 1.2 * cell}" cy="${cy - 0.8 * cell}" r="${0.42 * cell}" fill="${palette.surface}"/>`);
-    } else if (kind === 'star') {
-      parts.push(pathTag(starPath(cx, cy, 1.65 * cell, 8, 0.56), palette.eye));
-    } else {
-      parts.push(pathTag(polygonPath(cx, cy, 1.55 * cell, 6), palette.eye));
-    }
+    const outerShape = options.eyes === 'orbit' ? 'orbit' : 'circle';
+    const centerShape = options.eyes === 'orbit' ? 'orbit' : resolveEyeCenter(options, kind);
+    parts.push(eyeOuterSvg(cx, cy, cell, palette, outerShape, options, index));
+    parts.push(eyeCenterSvg(cx, cy, cell, palette, centerShape, options, index));
   }
+}
+
+function resolveEyeCenter(options, fallback) {
+  if (!options.eyeDifferent && options.eyeCenter === 'mixed') return 'dot';
+  if (!options.eyeDifferent && options.eyeCenter !== 'mixed') return options.eyeCenter;
+  if (options.eyeCenter === 'mixed') return fallback;
+  return options.eyeCenter;
+}
+
+function eyeOuterSvg(cx, cy, cell, palette, shape, options, index) {
+  if (shape === 'orbit') {
+    const start = index * 34;
+    return animatedGroup(cx, cy, options, index, index % 2 === 0 ? 1 : -1, [
+      `<ellipse cx="${cx}" cy="${cy}" rx="${3.35 * cell}" ry="${2.62 * cell}" fill="${palette.eye}" transform="rotate(${start} ${cx} ${cy})"/>`,
+      `<ellipse cx="${cx}" cy="${cy}" rx="${2.25 * cell}" ry="${1.62 * cell}" fill="${palette.surface}" transform="rotate(${start} ${cx} ${cy})"/>`,
+    ].join(''));
+  }
+  return [
+    `<circle cx="${cx}" cy="${cy}" r="${3.35 * cell}" fill="${palette.eye}"/>`,
+    `<circle cx="${cx}" cy="${cy}" r="${2.35 * cell}" fill="${palette.surface}"/>`,
+  ].join('');
+}
+
+function eyeCenterSvg(cx, cy, cell, palette, shape, options, index) {
+  if (shape === 'dot') {
+    return `<circle cx="${cx}" cy="${cy}" r="${1.48 * cell}" fill="${palette.eye}"/>`;
+  }
+  if (shape === 'poly') {
+    return animatedGroup(cx, cy, options, index, index % 2 === 0 ? 1 : -1, pathTag(polygonPath(cx, cy, 1.55 * cell, 6), palette.eye));
+  }
+  if (shape === 'star') {
+    return animatedGroup(cx, cy, options, index, index % 2 === 0 ? 1 : -1, pathTag(starPath(cx, cy, 1.65 * cell, 8, 0.56), palette.eye));
+  }
+  if (shape === 'ring') {
+    return `<circle cx="${cx}" cy="${cy}" r="${1.6 * cell}" fill="${palette.eye}"/><circle cx="${cx}" cy="${cy}" r="${0.78 * cell}" fill="${palette.surface}"/>`;
+  }
+  if (shape === 'orbit') {
+    return animatedGroup(cx, cy, options, index, index % 2 === 0 ? 1 : -1, [
+      `<ellipse cx="${cx}" cy="${cy}" rx="${1.72 * cell}" ry="${1.02 * cell}" fill="${palette.eye}" transform="rotate(-28 ${cx} ${cy})"/>`,
+      `<circle cx="${cx + 1.08 * cell}" cy="${cy - 0.78 * cell}" r="${0.36 * cell}" fill="${palette.surface}"/>`,
+    ].join(''));
+  }
+  return `<circle cx="${cx}" cy="${cy}" r="${1.48 * cell}" fill="${palette.eye}"/>`;
+}
+
+function animatedGroup(cx, cy, options, index, direction, content) {
+  if (!options.animatedEyes) return `<g>${content}</g>`;
+  const from = index * 37;
+  const to = from + 360 * direction;
+  return `<g><animateTransform attributeName="transform" type="rotate" from="${from} ${cx} ${cy}" to="${to} ${cx} ${cy}" dur="${round(options.eyeSpeed)}s" repeatCount="indefinite"/>${content}</g>`;
 }
 
 function drawMarginGhosts(parts, options, palette, count, margin, cell, random) {
@@ -193,7 +241,7 @@ function isInsideFrame(px, py, options, cx, cy, size, cell) {
   if (options.frame === 'clover') {
     const angle = Math.atan2(py - cy, px - cx);
     const distance = Math.hypot(py - cy, px - cx);
-    return distance < size * options.cloverBaseSize - size * options.cloverDepth * Math.cos(4 * angle) - cell * 1.5;
+    return distance < size * options.cloverBaseSize + size * options.cloverDepth * Math.cos(4 * (angle - Math.PI / 4)) - cell * 1.5;
   }
   return px > cell && px < size - cell && py > cell && py < size - cell;
 }
