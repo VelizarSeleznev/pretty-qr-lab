@@ -7,6 +7,8 @@ Pretty QR Lab is a local-first QR generator that works two ways:
 
 It renders QR codes as SVG first, then converts to PNG when needed. The web app and CLI share the same renderer, so a style selected in the UI can be reproduced from the terminal.
 
+Live page: <https://velizarseleznev.github.io/pretty-qr-lab/>
+
 ## Quick Start
 
 ```sh
